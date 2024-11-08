@@ -3,7 +3,7 @@ import os
 import numpy as np
 from tqdm import tqdm
 
-from utils import *
+from Utils.utils import *
 from MCTS.Game import *
 
 import torch

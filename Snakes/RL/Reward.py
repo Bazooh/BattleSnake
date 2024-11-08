@@ -1,4 +1,4 @@
-from RL.Utils import *
+from Snakes.RL.Utils import *
 
 def get_state_reward(game_state):
     if you_are_alive(game_state):

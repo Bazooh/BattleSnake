@@ -1,4 +1,4 @@
-from utils import *
+from Utils.utils import *
 from MCTS.Game import *
 
 NODE_MAIN_SNAKE = 0
@@ -13,17 +13,21 @@ class AlphaBeta:
         self.bounds = np.array([game_state["board"]["width"], game_state["board"]["height"]])
         self.game_info = game_state["game"]
     
+    
     def get_pos(self, pos: typing.Dict) -> np.ndarray:
         return np.array([pos["x"], pos["y"]])
     
+    
     def get_snake_pos(self, snake: typing.Dict) -> list:
         return [self.get_pos(pos) for pos in snake["body"]]
+    
     
     def get_node(self, game_state):
         main_snake = {game_state["you"]["id"]: self.get_snake_pos(game_state["you"])}
         other_snake = {snake["id"]: self.get_snake_pos(snake) for snake in game_state["board"]["snakes"]}
         apples = [self.get_pos(pos) for pos in game_state["board"]["food"]]
         return main_snake, other_snake, apples
+    
     
     def alpha_beta_search(self, game_state) -> str:
         best_val = -INFINITY
@@ -38,6 +42,7 @@ class AlphaBeta:
                 best_dir = directions[0]
         
         return best_dir
+
 
     def max_value(self, node, alpha: float, beta: float, depth: int) -> float:
         if depth >= self.max_depth:
@@ -55,6 +60,7 @@ class AlphaBeta:
                 return value
             alpha = max(alpha, value)
         return value
+
 
     def min_value(self, node, alpha: float, beta: float, depth: int) -> float:
         if depth >= self.max_depth:
@@ -74,6 +80,7 @@ class AlphaBeta:
 
         return value
     
+    
     def get_successors(self, node, player: int, as_dict: bool=False) -> typing.Dict | list:
         if player == MAIN_PLAYER:
             states = next_possible_states(node[NODE_MAIN_SNAKE], node[NODE_APPLES], self.bounds)
@@ -88,6 +95,7 @@ class AlphaBeta:
                 states[directions] = (node[NODE_MAIN_SNAKE], state[STATE_SNAKES], state[STATE_APPLES])
         
         return states if as_dict else states.values()
+
 
     def get_utility(self, node, player: int) -> float:
         main_snake = list(node[NODE_MAIN_SNAKE].values())[0]

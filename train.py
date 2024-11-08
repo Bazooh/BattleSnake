@@ -1,6 +1,7 @@
 import subprocess
 import json
 import socket
+from typing import cast
 from tqdm import tqdm
 from Constants import *
 import matplotlib.pyplot as plt
@@ -29,6 +30,11 @@ def moving_average(arr, n):
 def run_command(command, in_browser: bool = True):
     global in_browser_first_time
     
+    go_socket = None
+    turn = None
+    game_id = None
+    data = None
+    
     if in_browser:
         go_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         go_socket.bind(('localhost', 8080))
@@ -42,6 +48,8 @@ def run_command(command, in_browser: bool = True):
     subprocess.Popen(command, shell=True)
 
     if in_browser:
+        assert go_socket is not None
+        
         connection, _ = go_socket.accept()
         url = connection.recv(1024).decode('utf-8')
         connection.close()
@@ -51,7 +59,7 @@ def run_command(command, in_browser: bool = True):
         
         if in_browser_first_time:
             driver.get(url)
-            with open("./evilbar.js", 'r') as js_file:
+            with open("./Utils/evilbar.js", 'r') as js_file:
                 driver.execute_script(js_file.read(), game_id)
             
             in_browser_first_time = False
@@ -61,35 +69,42 @@ def run_command(command, in_browser: bool = True):
     connection, _ = sock.accept()
     
     is_game_finished = False
-    game_scores = [0.5] # * NOT SURE IF THIS IS CORRECT
+    game_infos = {"scores": [0], "trees_size": [0], "end_turn": -1} # * NOT SURE IF THIS IS CORRECT
     
     while not is_game_finished:
         raw_data = connection.recv(1024)
         
         raw_data = raw_data.decode('utf-8').split('\n')
+        
         for line in raw_data:
             if len(line) <= 0:
                 continue
             
             data = line.split('|')
-            turn, is_game_finished, score = int(data[0]), data[1] == "True", float(data[2])
-            game_scores.append(score)
+            turn, is_game_finished, score, tree_size = int(data[0]), data[1] == "True", float(data[2]), int(data[3])
+            game_infos["scores"].append(score)
+            game_infos["trees_size"].append(tree_size)
         
         if in_browser:
-            driver.execute_script(f"window.scores[\"{game_id}\"] = JSON.parse('{json.dumps(game_scores)}');")
-
+            assert turn is not None and game_id is not None
+            
             if is_game_finished:
-                driver.execute_script(f"window.end_turn[\"{game_id}\"] = {turn - 1};")
+                
+                game_infos["end_turn"] = turn - 1
+            
+            driver.execute_script(f"window.games_infos[\"{game_id}\"] = JSON.parse('{json.dumps(game_infos)}');")
+
+    assert data is not None
     
     global current_loss
-    current_loss = float(data[3])
+    current_loss = float(data[4])
     turns.append(turn)
     
     connection.close()
     sock.close()
 
 
-command = "cd /Users/aymeric/rules && ./battlesnake play -W 11 -H 11 --url http://0.0.0.0:8000 --name UCT_train --url http://0.0.0.0:8001 --name UCT"
+command = "cd /Users/aymeric/rules && ./battlesnake play -W 11 -H 11 -t 99999 --url http://0.0.0.0:8000 --name UCT_train --url http://0.0.0.0:8001 --name UCT"
 
 turns = []
 

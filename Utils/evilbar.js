@@ -1,5 +1,4 @@
-window.scores = {}
-window.end_turn = {}
+window.games_infos = {}
 window.game_href = ""
 
 function program(_window, game_id) {
@@ -8,13 +7,16 @@ function program(_window, game_id) {
     let doneLoadingNextGame = false;
 
     function updateEvaluationBar(turn=0) {
-        let game_scores = game_id in window.scores ? window.scores[game_id] : [0.5];
-        let new_value = turn < game_scores.length ? game_scores[turn] : game_scores[game_scores.length - 1];
+        let game_scores = game_id in window.games_infos ? window.games_infos[game_id]["scores"] : [0];
+        let game_trees_size = game_id in window.games_infos ? window.games_infos[game_id]["trees_size"] : 0;
+
+        let new_score = turn < game_scores.length ? game_scores[turn] : game_scores[game_scores.length - 1];
+        let new_tree_size = turn < game_trees_size.length ? game_trees_size[turn] : game_trees_size[game_trees_size.length - 1];
 
         const bar = _window.document.getElementById('evilbar-fill');
         const value = _window.document.getElementById('evilbar-value');
-        bar.style.height = `${new_value * 100}%`;
-        value.innerHTML = `${new_value.toFixed(2)}`;
+        bar.style.height = `${(new_score + 1) * 50}%`;
+        value.innerHTML = `${new_score.toFixed(2)}\n${new_tree_size}`;
     }
 
     function createEvilBar() {
@@ -96,12 +98,12 @@ function program(_window, game_id) {
             if (mutation.type === 'characterData') {
                 let turn = parseInt(mutation.target.textContent);
 
-                updateEvaluationBar(turn);
+                updateEvaluationBar(turn + 1);
                 if (doneLoadingNextGame) { return; }
 
-                console.log(turn, window.end_turn[game_id])
+                console.log(turn, window.games_infos[game_id]["end_turn"])
 
-                if (turn == window.end_turn[game_id]) {
+                if (turn == window.games_infos[game_id]["end_turn"]) {
                     console.log("load...")
                     setTimeout(function() {
                         let new_window = _window.open(window.game_href);

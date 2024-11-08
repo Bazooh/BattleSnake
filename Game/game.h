@@ -6,8 +6,14 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <math.h>
 
-#define NO_WINNER 0.5f
+#define NO_WINNER 0
+#define MAIN_PLAYER 1
+#define OTHER_PLAYER -1
+
+#define VIEW_SIZE 3
+#define AID_SIZE 4
 
 typedef struct s_board
 {
@@ -17,8 +23,11 @@ typedef struct s_board
     int **snakes_matrix;
     int **apples_matrix;
     t_snake* *snakes;
-    float winner;
+    int winner;
     bool finished;
+    int turn;
+    float*** convs;
+    float** aids;
 } t_board;
 
 void free_board(t_board* board);

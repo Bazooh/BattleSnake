@@ -3,7 +3,7 @@ import logging
 from MCTS.Coach import Coach
 from MCTS.Game import Game
 from MCTS.NeuralNet import NNetWrapper as nn
-from utils import *
+from Utils.utils import *
 
 log = logging.getLogger(__name__)
 

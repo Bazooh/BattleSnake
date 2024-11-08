@@ -1,43 +1,74 @@
 from __future__ import annotations
+from calendar import c
 import ctypes
-from typing import List, Tuple
+from typing import Any, Literal, Sequence, Type, TypeVar, cast, Union, overload
 import torch
 
-NO_WINNER = 0.5
+from Constants import AID_SHAPE
+
+NO_WINNER = 0
+X = 0
+Y = 1
+
+UP = 0
+RIGHT = 1
+DOWN = 2
+LEFT = 3
+
+N_LOCAL_ACTIONS = 3
+LocalAction = Literal[0, 1, 2]
+Pos = tuple[int, int]
+CNumber = type[ctypes.c_int] | type[ctypes.c_float]
 
 LP_c_int = ctypes.POINTER(ctypes.c_int)
 LP_LP_c_int = ctypes.POINTER(LP_c_int)
+LP_c_float = ctypes.POINTER(ctypes.c_float)
+LP_LP_c_float = ctypes.POINTER(LP_c_float)
+LP_LP_LP_c_float = ctypes.POINTER(LP_LP_c_float)
 
 my_library = ctypes.CDLL('/Users/aymeric/Desktop/AI/BattleSnake/Game/game.so')
 
-def c_array(array: List[int]) -> LP_c_int:
-    return (ctypes.c_int * len(array))(*array)
 
-def c_matrix(matrix: List[List[int]]) -> LP_LP_c_int:
-    c_arrays = (LP_c_int * len(matrix))()
+T = TypeVar('T', bound = ctypes.c_int | ctypes.c_float)
+def c_array(array: Sequence, type: Type[T] = ctypes.c_int) -> ctypes.Array[T]:
+    return (type * len(array))(*array)
+
+
+def c_matrix(matrix: list[list], type: CNumber = ctypes.c_int):
+    c_arrays = (ctypes.POINTER(type) * len(matrix))()
 
     for i, inner_list in enumerate(matrix):
-        c_arrays[i] = c_array(inner_list)
+        c_arrays[i] = c_array(inner_list, type)
 
-    return ctypes.cast(c_arrays, LP_LP_c_int)
+    return ctypes.cast(c_arrays, ctypes.POINTER(ctypes.POINTER(type)))
 
-def matrix_from_list(l: List[List[int]], width: int, height: int) -> List[List[int]] :
+
+def c_3d_matrix(matrix_3d: list[list[list]], type: CNumber = ctypes.c_int):
+    c_matrices = (ctypes.POINTER(ctypes.POINTER(type)) * len(matrix_3d))()
+
+    for i, matrix in enumerate(matrix_3d):
+        c_matrices[i] = c_matrix(matrix, type)
+
+    return ctypes.cast(c_matrices, ctypes.POINTER(ctypes.POINTER(ctypes.POINTER(type))))
+
+
+def matrix_from_list(l: list[list[Pos]], width: int, height: int) -> list[list[int]]:
     matrix = []
-    for _ in range(width) :
+    for _ in range(width):
         matrix.append([0 for _ in range(height)])
-    for sub_l in l :
-        for item in sub_l :
+    for sub_l in l:
+        for item in sub_l:
             matrix[item[0]][item[1]] = 1
     return matrix
 
 class CSnakePart(ctypes.Structure):
-    def __init__(self, x, y) :
+    def __init__(self, x, y):
         super(CSnakePart, self).__init__()
         
         self.x = x
         self.y = y
-        self.next = None
-        self.prev = None
+        self.next: Any = None
+        self.prev: Any = None
 
 LP_c_SnakePart = ctypes.POINTER(CSnakePart)
 
@@ -54,9 +85,11 @@ class CSnake(ctypes.Structure):
         ("head", LP_c_SnakePart),
         ("tail", LP_c_SnakePart),
         ("health", ctypes.c_int),
+        ("global_direction", ctypes.c_int),
+        ("playable_actions", ctypes.c_bool * N_LOCAL_ACTIONS)
     ]
     
-    def __init__(self, body: List[Tuple[int]], health: int = 100) :
+    def __init__(self, body: list[Pos], health: int = 100, width: int = 11, height: int = 11):
         super(CSnake, self).__init__()
         
         cbody = [CSnakePart(x, y) for x, y in body]
@@ -70,6 +103,14 @@ class CSnake(ctypes.Structure):
         self.head = ctypes.pointer(cbody[0])
         self.tail = ctypes.pointer(cbody[-1])
         self.health = health
+        self.global_direction = UP if body[0][Y] > body[1][Y] else DOWN if body[0][Y] < body[1][Y] else RIGHT if body[0][X] > body[1][X] else LEFT
+        
+        local_directions = [(self.global_direction + i) & 0b11 for i in [-1, 0, 1]]
+        playable_actions = (
+            body[0][X] + dx >= 0 and body[0][X] + dx < width and body[0][Y] + dy >= 0 and body[0][Y] + dy < height
+            for dx, dy in [[(0, 1), (1, 0), (0, -1), (-1, 0)][direction] for direction in local_directions]
+        )
+        self.playable_actions = (ctypes.c_bool * N_LOCAL_ACTIONS)(*playable_actions)
     
     def __iter__(self) :
         current = self.head.contents
@@ -85,28 +126,33 @@ class CSnake(ctypes.Structure):
     def __len__(self) -> int:
         return sum(1 for _ in self)
 
+
 LP_c_Snake = ctypes.POINTER(CSnake)
 LP_LP_c_Snake = ctypes.POINTER(LP_c_Snake)
 
 
 class Board():
-    def __init__(self, width: int, height: int, snakes: List[List[Tuple[int]]], apples: List[Tuple[int]], winner: int = NO_WINNER, finished: bool = False) :
+    def __init__(self, width: int, height: int, snakes: list[list[Pos]], snakes_health: tuple[int, ...] | None = None, apples: list[Pos] = [], winner: int = NO_WINNER, finished: bool = False, turn: int = 0):
         self.width = width
         self.height = height
         self.snakes = snakes
+        self.snakes_health = snakes_health if snakes_health is not None else [100 for _ in range(len(snakes))]
         self.apples = apples
         self.winner = winner
         self.finished = finished
+        self.turn = turn
     
     @staticmethod
     def from_cboard(cboard: CBoard) -> Board:
         return Board(
-            cboard.width,
-            cboard.height,
-            [[(part.x, part.y) for part in cboard.snakes[i]] for i in range(cboard.nb_snakes)],
-            [(i, j) for i in range(cboard.width) for j in range(cboard.height) if cboard.apples_matrix[i][j] == 1],
-            cboard.winner,
-            cboard.finished
+            width = cast(int, cboard.width),
+            height = cast(int, cboard.height),
+            snakes = [[(part.x, part.y) for part in cboard.snakes[i]] for i in range(cast(int, cboard.nb_snakes))],
+            snakes_health = tuple(cast(int, cboard.snakes[i].contents.health) for i in range(cast(int, cboard.nb_snakes))),
+            apples = [(i, j) for i in range(cast(int, cboard.width)) for j in range(cast(int, cboard.height)) if cboard.apples_matrix[i][j] == 1],
+            winner = cast(int, cboard.winner),
+            finished = cast(bool, cboard.finished),
+            turn = cboard.turn,
         )
     
     @staticmethod
@@ -114,14 +160,16 @@ class Board():
         main_snake = [(part["x"], part["y"]) for part in game_state["you"]["body"]]
         other_snakes = [[(part["x"], part["y"]) for part in snake["body"]] for snake in game_state["board"]["snakes"] if snake["id"] != game_state["you"]["id"]]
         return Board(
-            game_state["board"]["width"],
-            game_state["board"]["height"],
-            [main_snake] + other_snakes,
-            [(apple["x"], apple["y"]) for apple in game_state["board"]["food"]],
+            width = game_state["board"]["width"],
+            height = game_state["board"]["height"],
+            snakes = [main_snake] + other_snakes,
+            snakes_health = (game_state["you"]["health"],) + tuple(snake["health"] for snake in game_state["board"]["snakes"] if snake["id"] != game_state["you"]["id"]),
+            apples = [(apple["x"], apple["y"]) for apple in game_state["board"]["food"]],
+            turn = game_state["turn"],
         )
     
     def __str__(self) -> str:
-        return str(CBoard(self))
+        return str(CBoard.from_board(self))
 
 
 class CBoard(ctypes.Structure):
@@ -132,84 +180,130 @@ class CBoard(ctypes.Structure):
         ("snakes_matrix", LP_LP_c_int),
         ("apples_matrix", LP_LP_c_int),
         ("snakes", LP_LP_c_Snake),
-        ("winner", ctypes.c_float),
+        ("winner", ctypes.c_int),
         ("finished", ctypes.c_bool),
+        ("turn", ctypes.c_int),
+        ("convs", LP_LP_LP_c_float),
+        ("aids", LP_LP_c_float),
     ]
     
     _free_board = my_library.free_board
     
-    def __init__(self, width, height, nb_snakes, snakes_matrix, apples_matrix, snakes, winner = NO_WINNER, finished = False) :
+    
+    def __init__(
+        self,
+        width, height,
+        nb_snakes,
+        snakes_matrix, apples_matrix,
+        snakes,
+        convs,
+        aids,
+        winner: int = NO_WINNER,
+        finished: bool = False,
+        turn: int = 0
+    ):
         super(CBoard, self).__init__()
         
         self.width: ctypes.c_int = width
         self.height: ctypes.c_int = height
         self.nb_snakes: ctypes.c_int = nb_snakes
-        self.snakes_matrix: LP_LP_c_int = snakes_matrix
-        self.apples_matrix: LP_LP_c_int = apples_matrix
-        self.snakes: LP_LP_c_Snake = snakes
-        self.winner: ctypes.c_float = winner
-        self.finished: ctypes.c_bool = finished
+        self.snakes_matrix = snakes_matrix
+        self.apples_matrix = apples_matrix
+        self.snakes = snakes
+        self.convs = convs
+        self.aids = aids
+        self.winner: ctypes.c_int = cast(ctypes.c_int, winner)
+        self.finished: ctypes.c_bool = cast(ctypes.c_bool, finished)
+        self.turn = turn
+        self.should_be_freed = False
+    
 
-
-    @staticmethod
-    def from_board(board: Board) :
-        return CBoard(
-            board.width,
-            board.height,
-            len(board.snakes),
-            c_matrix(matrix_from_list(board.snakes, board.width, board.height)),
-            c_matrix(matrix_from_list([board.apples], board.width, board.height)),
-            (LP_c_Snake * len(board.snakes))(*(ctypes.pointer(CSnake(snake)) for snake in board.snakes)),
-            board.winner,
-            board.finished
+    @classmethod
+    def from_board(cls, board: Board):
+        return cls(
+            width = board.width,
+            height = board.height,
+            nb_snakes = len(board.snakes),
+            snakes_matrix = c_matrix(matrix_from_list(board.snakes, board.width, board.height)),
+            apples_matrix = c_matrix(matrix_from_list([board.apples], board.width, board.height)),
+            snakes = (LP_c_Snake * len(board.snakes))(*(ctypes.pointer(
+                CSnake(snake, health, board.width, board.height)
+            ) for snake, health in zip(board.snakes, board.snakes_health))),
+            convs = c_3d_matrix(cast(list[list[list]], torch.zeros((2, 7, 7))), ctypes.c_float),
+            aids = c_matrix(cast(list[list], torch.zeros((2, 4))), ctypes.c_float),
+            winner = board.winner,
+            finished = board.finished,
+            turn = board.turn,
         )
     
-    @staticmethod
-    def from_game_state(game_state: dict) :
-        return CBoard.from_board(Board.from_game_state(game_state))
     
-    def __str__(self) -> str :
+    @classmethod
+    def from_game_state(cls, game_state: dict):
+        return cls.from_board(Board.from_game_state(game_state))
+    
+    
+    def __str__(self) -> str:
         board_str = ""
-        for i in range(self.height - 1, -1, -1) :
-            for j in range(self.width) :
-                if self.apples_matrix[j][i] == 1 :
-                    board_str += "O "
-                elif self.snakes_matrix[j][i] == 1 :
+        for y in range(cast(int, self.height) - 1, -1, -1):
+            for x in range(cast(int, self.width)):
+                if (x, y) in [(snake.contents.head.contents.x, snake.contents.head.contents.y) for snake in self.snakes[:2]]:
                     board_str += "X "
+                elif self.apples_matrix[x][y] == 1:
+                    board_str += "O "
+                elif self.snakes_matrix[x][y] == 1:
+                    board_str += "* "
                 else :
                     board_str += ". "
             board_str += "\n"
         return board_str
 
-    def to_tensor(self) -> torch.Tensor :
-        terrain = torch.tensor([[self.snakes_matrix[j][i] for j in range(self.width)] for i in range(self.height)], dtype=torch.float).flatten()
-        apples = torch.tensor([[self.apples_matrix[j][i] for j in range(self.width)] for i in range(self.height)], dtype=torch.float).flatten()
-        main_head = torch.zeros((self.width, self.height), dtype=torch.float)
-        main_head[self.snakes[0].contents.head.contents.x][self.snakes[0].contents.head.contents.y] = 1.
-        other_head = torch.zeros((self.width, self.height), dtype=torch.float)
-        other_head[self.snakes[1].contents.head.contents.x][self.snakes[1].contents.head.contents.y] = 1.
+
+    def to_tensors(self, device) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Returns a tuple of three tensors:
+            - (N_SNAKES, *CONV_SHAPE[1:]) Conv tensor representing the view of the snakes
+            - (N_SNAKES, *AID_SHAPE[1:]) Tensor representing some helpful parameters for the snake (length, left_dist, front_dist, right_dist)
+            - (N_SNAKES, 3) Tensor representing the possible actions for the snake
+        """
+        if self.finished:
+            raise ValueError("Cannot convert a finished board to tensors")
         
-        return torch.cat(
-            (
-                terrain,
-                apples,
-                main_head.flatten(),
-                other_head.flatten(),
-                torch.tensor(
-                    [
-                        len(self.snakes[0].contents),
-                        len(self.snakes[1].contents),
-                        self.snakes[0].contents.health,
-                        self.snakes[1].contents.health,
-                    ],
-                    dtype=torch.float
-                ),
-            ),
-            dim=0
-        ).unsqueeze(0)
+        return (
+            torch.tensor([[[self.convs[i][j][k] for k in range(7)] for j in range(7)] for i in range(cast(int, self.nb_snakes))], dtype=torch.float, device=device),
+            torch.tensor([[self.aids[i][j] for j in range(4)] for i in range(cast(int, self.nb_snakes))], dtype=torch.float, device=device),
+            torch.tensor([snake.contents.playable_actions for snake in self.snakes[:2]], dtype=torch.bool, device=device),
+        )
     
-    def free(self) :
-        self._free_board(ctypes.pointer(self))
+    
+    def has_same_snakes(self, other: CBoard) -> bool:
+        return self.nb_snakes == other.nb_snakes and all(
+            len(self.snakes[snake_idx].contents) == len(other.snakes[snake_idx].contents) and \
+            all(
+                part.x == other_part.x and part.y == other_part.y
+                for part, other_part in zip(self.snakes[snake_idx].contents, other.snakes[snake_idx].contents)
+            )
+            for snake_idx in range(cast(int, self.nb_snakes))
+        ) and all(
+            self.snakes[snake_idx].contents.health == other.snakes[snake_idx].contents.health
+            for snake_idx in range(cast(int, self.nb_snakes))
+        )
+    
+    
+    def __del__(self):
+        if self.should_be_freed:
+            self._free_board(ctypes.pointer(self))
+    
+    
+    def __eq__(self, other: object) -> bool:
+        assert isinstance(other, CBoard), f"Cannot compare CBoard with {type(other)}"
+        
+        return self.snakes_matrix == other.snakes_matrix \
+           and self.apples_matrix == other.apples_matrix \
+           and self.snakes == other.snakes \
+           and self.winner == other.winner \
+           and self.finished == other.finished \
+           and self.turn == other.turn
+
 
 LP_c_Board = ctypes.POINTER(CBoard)
 CBoard._free_board.argtypes = [LP_c_Board]
@@ -218,5 +312,19 @@ _next_board = my_library.next_board
 _next_board.argtypes = [LP_c_Board, LP_c_int]
 _next_board.restype = LP_c_Board
 
-def next_board(cboard: CBoard, directions: list) -> CBoard:
-    return _next_board(ctypes.byref(cboard), c_array(directions)).contents
+def next_board(cboard: CBoard, local_directions: tuple[LocalAction, LocalAction]) -> CBoard:
+    """Return the next board after the snakes move in the given directions
+
+    Args:
+        cboard (CBoard)
+        directions (Tuple[int, int]): Tuple of two integers representing the local direction of the snakes
+            0: left | 1: straight | 2: right
+
+    Returns:
+        CBoard: The next board
+    """
+    
+    next_board = _next_board(ctypes.byref(cboard), c_array(local_directions)).contents
+    next_board.should_be_freed = True
+    
+    return next_board

@@ -1,52 +1,15 @@
+// To compile:
+// gcc -shared -o Game/game.so -fPIC Game/game.c
+
+
 #include "game.h"
 
-// t_board* init_board(int width, int height, int nb_snakes)
-// {
-//     t_board* board = malloc(sizeof(t_board));
 
-//     board->width = width;
-//     board->height = height;
-//     board->nb_snakes = nb_snakes;
-//     board->snakes_matrix = malloc(sizeof(int*) * width);
-//     board->apples_matrix = malloc(sizeof(int*) * width);
-//     board->snakes = malloc(sizeof(t_snake*) * 2);
-//     board->winner = NO_WINNER;
-//     board->finished = false;
+#define clamp(x, min, max) ((x) <= (min) ? (min) : ((x) >= (max) ? (max) : (x)))
 
-//     for (int x = 0; x < width; x++)
-//     {
-//         board->snakes_matrix[x] = malloc(sizeof(int) * height);
-//         board->apples_matrix[x] = malloc(sizeof(int) * height);
-//         for (int y = 0; y < height; y++)
-//         {
-//             board->snakes_matrix[x][y] = 0;
-//             board->apples_matrix[x][y] = 0;
-//         }
-//     }
-//     for (int i = 0; i < nb_snakes; i++)
-//     {
-//         board->snakes[i] = malloc(sizeof(t_snake));
-//         board->snakes[i]->head = malloc(sizeof(t_snake_part));
-//         board->snakes[i]->tail = malloc(sizeof(t_snake_part));
-//         board->snakes[i]->head->prev = NULL;
-//         board->snakes[i]->head->next = board->snakes[i]->tail;
-//         board->snakes[i]->tail->prev = board->snakes[i]->head;
-//         board->snakes[i]->tail->next = NULL;
-//         board->snakes[i]->health = 100;
-//     }
-//     board->snakes[0]->head->x = 2;
-//     board->snakes[0]->head->y = 2;
-//     board->snakes[0]->tail->x = 2;
-//     board->snakes[0]->tail->y = 3;
-//     board->snakes[1]->head->x = 7;
-//     board->snakes[1]->head->y = 7;
-//     board->snakes[1]->tail->x = 7;
-//     board->snakes[1]->tail->y = 6;
-
-//     return board;
-// }
 
 int main() { return 0; }
+
 
 void free_board(t_board* board)
 {
@@ -63,7 +26,22 @@ void free_board(t_board* board)
 
     free(board->snakes);
     free(board);
+
+    if (board->finished) return;
+
+    // for (int snake = 0; snake < board->nb_snakes; snake++)
+    // {
+    //     for (int i = 0; i < 2*VIEW_SIZE + 1; i++)
+    //         free(board->convs[snake][i]);
+    //     free(board->convs[snake]);
+    // }
+    // free(board->convs);
+
+    // for (int snake = 0; snake < board->nb_snakes; snake++)
+        // free(board->aids[snake]);
+    // free(board->aids);
 }
+
 
 t_board* copy_board(t_board* board)
 {
@@ -74,6 +52,7 @@ t_board* copy_board(t_board* board)
     new_board->nb_snakes = board->nb_snakes;
     new_board->winner = board->winner;
     new_board->finished = board->finished;
+    new_board->turn = board->turn;
 
     new_board->snakes_matrix = malloc(sizeof(int*) * board->width);
     new_board->apples_matrix = malloc(sizeof(int*) * board->width);
@@ -89,35 +68,36 @@ t_board* copy_board(t_board* board)
     }
 
     new_board->snakes = malloc(sizeof(t_snake*) * board->nb_snakes);
-    for (int i = 0; i < board->nb_snakes; i++)
-        new_board->snakes[i] = copy_snake(board->snakes[i]);
+    for (int snake = 0; snake < board->nb_snakes; snake++)
+        new_board->snakes[snake] = copy_snake(board->snakes[snake]);
 
     return new_board;
 }
 
-bool move_snakes(t_board* board, int *directions)
+
+bool move_snakes(t_board* board, int *local_directions)
 {
-    for (int i = 0; i < board->nb_snakes; i++)
+    for (int snake = 0; snake < board->nb_snakes; snake++)
     {
-        if (!grow_snake(board->snakes[i], directions[i], board->width, board->height))
+        if (!grow_snake(board->snakes[snake], local_directions[snake], board->width, board->height))
         {
             board->finished = true;
-            board->winner = board->winner == NO_WINNER ? !i : NO_WINNER;
+            board->winner = board->winner == NO_WINNER ? (snake == 0 ? OTHER_PLAYER : MAIN_PLAYER) : NO_WINNER;
         }
         
-        if (board->snakes[i]->tail->x != board->snakes[i]->tail->prev->x || board->snakes[i]->tail->y != board->snakes[i]->tail->prev->y)
-            board->snakes_matrix[board->snakes[i]->tail->x][board->snakes[i]->tail->y] = 0;
-        suppress_tail(board->snakes[i]);
+        if (board->snakes[snake]->tail->x != board->snakes[snake]->tail->prev->x || board->snakes[snake]->tail->y != board->snakes[snake]->tail->prev->y)
+            board->snakes_matrix[board->snakes[snake]->tail->x][board->snakes[snake]->tail->y] = 0;
+        suppress_tail(board->snakes[snake]);
     }
 
     if (board->finished) return false;
 
-    for (int i = 0; i < board->nb_snakes; i++)
+    for (int snake = 0; snake < board->nb_snakes; snake++)
     {
-        if (board->snakes_matrix[board->snakes[i]->head->x][board->snakes[i]->head->y])
+        if (board->snakes_matrix[board->snakes[snake]->head->x][board->snakes[snake]->head->y])
         {
             board->finished = true;
-            board->winner = board->winner == NO_WINNER ? !i : NO_WINNER;
+            board->winner = board->winner == NO_WINNER ? (snake == 0 ? OTHER_PLAYER : MAIN_PLAYER) : NO_WINNER;
         }
     }
 
@@ -125,6 +105,7 @@ bool move_snakes(t_board* board, int *directions)
 
     return true;
 }
+
 
 bool heads_collide(t_board* board)
 {
@@ -138,9 +119,9 @@ bool heads_collide(t_board* board)
                 int length_j = snake_length(board->snakes[j]);
 
                 if (length_i < length_j)
-                    board->winner = j;
+                    board->winner = -1;
                 else if (length_i > length_j)
-                    board->winner = i;
+                    board->winner = 1;
                 else
                     board->winner = NO_WINNER;
                 
@@ -150,34 +131,133 @@ bool heads_collide(t_board* board)
     return false;
 }
 
-t_board* next_board(t_board* board, int *directions)
+
+float distance_to_nearest_apple(t_board* board, t_snake* snake, int max_distance, int local_direction)
 {
-    board = copy_board(board);
-
-    for (int i = 0; i < board->nb_snakes; i++)
-        (board->snakes[i]->health)--;
+    int x = snake->head->x;
+    int y = snake->head->y;
     
-    if (!move_snakes(board, directions)) return board;
+    move_snake(snake->global_direction, local_direction, board->width, board->height, &x, &y);
 
-    if (heads_collide(board)) return board;
+    int min_distance = max_distance;
 
-    for (int i = 0; i < board->nb_snakes; i++)
+    for (int i = 0; i < board->width; i++)
+        for (int j = 0; j < board->height; j++)
+            if (board->apples_matrix[i][j])
+            {
+                int distance = (x - i)*(x - i) + (y - j)*(y - j);
+                if (distance < min_distance)
+                    min_distance = distance;
+            }
+
+    return (float)sqrt((double)min_distance / max_distance);
+}
+
+
+void create_tensor(t_board* board)
+{
+    board->convs = malloc(board->nb_snakes * sizeof(float**));
+    for (int snake = 0; snake < board->nb_snakes; snake++)
     {
-        board->snakes_matrix[board->snakes[i]->head->x][board->snakes[i]->head->y] = 1;
+        board->convs[snake] = malloc(sizeof(float*) * (2*VIEW_SIZE + 1));
+        for (int i = 0; i < 2*VIEW_SIZE + 1; i++)
+            board->convs[snake][i] = calloc(2*VIEW_SIZE + 1, sizeof(float));
+    }
 
-        if (board->apples_matrix[board->snakes[i]->head->x][board->snakes[i]->head->y])
-        {
-            add_tail(board->snakes[i]);
-            board->snakes[i]->health = 100;
-            board->apples_matrix[board->snakes[i]->head->x][board->snakes[i]->head->y] = 0;
-        }
+    board->aids = malloc(sizeof(float*) * board->nb_snakes);
+    for (int snake = 0; snake < board->nb_snakes; snake++)
+        board->aids[snake] = calloc(AID_SIZE, sizeof(float));
 
-        if (board->snakes[i]->health <= 0)
+    for (int snake = 0; snake < board->nb_snakes; snake++)
+    {
+        int pos_x = board->snakes[snake]->head->x;
+        int pos_y = board->snakes[snake]->head->y;
+
+        if (!board->snakes[snake]->head->next) return;
+
+        int direction_x = pos_x - board->snakes[snake]->head->next->x;
+        int direction_y = pos_y - board->snakes[snake]->head->next->y;
+
+        for (int i = -VIEW_SIZE; i <= VIEW_SIZE; i++)
         {
-            board->finished = true;
-            board->winner = board->winner == NO_WINNER ? !i : NO_WINNER;
+            for (int j = -VIEW_SIZE; j <= VIEW_SIZE; j++)
+            {
+                int dx = direction_x*j + direction_y*i;
+                int dy = direction_y*j - direction_x*i;
+
+                int x = pos_x + dx;
+                int y = pos_y + dy;
+
+                if (x < 0 || x >= board->width || y < 0 || y >= board->height)
+                    board->convs[snake][i + VIEW_SIZE][j + VIEW_SIZE] = 1;
+                else if (board->snakes_matrix[x][y])
+                    board->convs[snake][i + VIEW_SIZE][j + VIEW_SIZE] = 1;
+                else
+                    board->convs[snake][i + VIEW_SIZE][j + VIEW_SIZE] = 0;
+            }
         }
     }
+
+    int max_distance = board->width*board->width + board->height*board->height;
+    int lengths[2] = {snake_length(board->snakes[0]), snake_length(board->snakes[1])};
+    for (int snake = 0; snake < board->nb_snakes; snake++)
+    {
+        board->aids[snake][0] = clamp(lengths[snake] - lengths[1 - snake], -5, 5) / 5.0f;
+        for (int local_action = 0; local_action < 3; local_action++)
+            board->aids[snake][1 + local_action] = board->snakes[snake]->playable_actions[local_action] ?
+                distance_to_nearest_apple(board, board->snakes[snake], max_distance, local_action) : 0;
+    }
+}
+
+
+void compute_snakes_playable_actions(t_board* board)
+{
+    for (int snake = 0; snake < board->nb_snakes; snake++)
+        if (!compute_playable_actions(board->snakes[snake], board->snakes_matrix, board->snakes, board->nb_snakes, board->width, board->height))
+        {
+            board->finished = true;
+            board->winner = board->winner == NO_WINNER ? (snake == 0 ? OTHER_PLAYER : MAIN_PLAYER) : NO_WINNER;
+        }
+}
+
+
+t_board* next_board(t_board* board, int *local_directions)
+{
+    board = copy_board(board);
+    board->turn++;
+
+    for (int snake = 0; snake < board->nb_snakes; snake++)
+        (board->snakes[snake]->health)--;
+    
+    if (!move_snakes(board, local_directions))
+        return board;
+
+    if (heads_collide(board))
+        return board;
+
+    for (int snake = 0; snake < board->nb_snakes; snake++)
+    {
+        board->snakes_matrix[board->snakes[snake]->head->x][board->snakes[snake]->head->y] = 1;
+
+        if (board->apples_matrix[board->snakes[snake]->head->x][board->snakes[snake]->head->y])
+        {
+            add_tail(board->snakes[snake]);
+            board->snakes[snake]->health = 100;
+            board->apples_matrix[board->snakes[snake]->head->x][board->snakes[snake]->head->y] = 0;
+        }
+
+        if (board->snakes[snake]->health <= 0)
+        {
+            board->finished = true;
+            board->winner = board->winner == NO_WINNER ? (snake == 0 ? OTHER_PLAYER : MAIN_PLAYER) : NO_WINNER;
+        }
+    }
+
+    if (!board->finished)
+        compute_snakes_playable_actions(board);
+    
+    if (!board->finished)
+        create_tensor(board);
 
     return board;
 }

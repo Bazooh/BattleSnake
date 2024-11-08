@@ -1,9 +1,9 @@
-from Snake import Snake
-from RL.Utils import *
-from RL.Network import Network
+from Snakes.Snake import Snake
+from Snakes.RL.Utils import *
+from Snakes.RL.Network import Network
 import torch
 import torch.optim as optim
-from RL.Reward import get_state_reward
+from Snakes.RL.Reward import get_state_reward
 import os
 import socket
 from Constants import *
@@ -95,4 +95,4 @@ class RLSnake(Snake):
             self.last_game_state = state
             self.last_action = action
         
-        return {"move": ACTIONS[action.item()]}
+        return {"move": GLOBAL_ACTIONS[action.item()]}

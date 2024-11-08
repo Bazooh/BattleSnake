@@ -1,7 +1,6 @@
-import typing
+from typing import Any
 import numpy as np
-from copy import deepcopy
-from itertools import product
+from Constants import *
 
 DIRECTIONS = {
     "up": np.array([0, 1]),
@@ -26,7 +25,7 @@ OTHER_PLAYER = -1
 X = 0
 Y = 1
 
-def get_grid(snakes: typing.Dict, bounds: np.ndarray) -> np.ndarray:
+def get_grid(snakes: dict[str, Any], bounds: np.ndarray) -> np.ndarray:
     grid = np.zeros((bounds[X], bounds[Y]))
     
     for snake in snakes.values():
@@ -54,6 +53,27 @@ def valid_moves(grid: np.ndarray, head: np.ndarray) -> list:
         if is_move_valid(grid, head + direction_vector):
             moves.append(direction)
     return moves
+
+
+def get_global_direction_idx(snake: dict[str, Any]) -> int:
+    head = snake["body"][0]
+    neck = snake["body"][1]
+
+    direction = (head["x"] - neck["x"], head["y"] - neck["y"])
+    
+    match direction:
+        case (0, 1): return 0
+        case (0, -1): return 2
+        case (1, 0): return 1
+        case (-1, 0): return 3
+    
+    assert False, f"Invalid direction {direction}"
+
+
+def get_global_direction(snake: dict[str, Any]) -> str | None:
+    idx = get_global_direction_idx(snake)
+    return GLOBAL_ACTIONS[idx] if idx is not None else None
+
 
 class AverageMeter(object):
     def __init__(self):

@@ -33,10 +33,17 @@ class Snake():
         """
         return {"move": "right"}
 
+
 class StupidSnake(Snake):
     directions = ["right", "up", "left", "down"]
     
+    
     def __init__(self, start_idx: int = -1) -> None:
+        """Makes a circle with the directions
+
+        Args:
+            start_idx (int, optional): the direction the snakes starts with. Defaults to -1 (probably right)
+        """
         super().__init__()
         self.current_idx = start_idx
     

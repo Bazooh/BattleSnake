@@ -1,6 +1,7 @@
 from copy import deepcopy
-from utils import *
+from Utils.utils import *
 import typing
+from itertools import product
 
 STATE_SNAKES = 0
 STATE_APPLES = 1

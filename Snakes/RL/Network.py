@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from RL.Utils import *
+from Snakes.RL.Utils import *
 
 class Network(nn.Module):
     def __init__(self):

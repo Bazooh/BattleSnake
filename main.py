@@ -11,11 +11,13 @@
 # For more info see docs.battlesnake.com
 
 import sys
-from RL.Snake import RLSnake
-from UCT.Snake import UCTSnake
-from Snake import *
-from threading import Thread
-from Color import *
+from Snakes.RL.Snake import RLSnake
+from Snakes.UCT.Snake import UCTSnake, UTCSnakeSlave
+from Snakes.Snake import *
+from threading import Thread, Event
+from Utils.Color import *
+from Server import run_server
+
 
 def snakes_to_threads(snakes, port):
     threads = []
@@ -28,21 +30,24 @@ def snakes_to_threads(snakes, port):
         )
     return threads
 
+
 def run_threads(threads):
     for thread in threads:
         thread.start()
     for thread in threads:
         thread.join()
 
+
 # Start server when `python main.py` is run
 if __name__ == "__main__":
-    from server import run_server
     port = sys.argv[1] if len(sys.argv) > 1 else 8000
     
     snakes = []
-    snakes.append(UCTSnake("UCT/Networks/v_2_1.pt", train=True, should_send_end=True, should_show_tree=False))
-    snakes.append(UCTSnake("UCT/Networks/v_2_1.pt", train=False, color=GRAY))
+    moves = {}
+    events = [Event()]
+    snakes.append(UCTSnake("Snakes/UCT/Networks/v_3_0.pt", train=False, profile=True, human_policy=True, should_send_end=True, moves=moves, events=events))
+    snakes.append(UTCSnakeSlave(moves=moves, event=events[0], color=GRAY))
     
     run_threads(snakes_to_threads(snakes, port))
 
-# cd /Users/aymeric/rules && ./battlesnake play -W 11 -H 11 --url http://0.0.0.0:8000 --url http://0.0.0.0:8000  --browser
+# /Users/aymeric/rules/battlesnake play -W 11 -H 11 --url http://0.0.0.0:8000 --url http://0.0.0.0:8001  --browser

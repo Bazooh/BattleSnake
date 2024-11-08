@@ -1,4 +1,4 @@
-game_state = {
+{
     "game": {
         "id": "e79b555e-92c1-4688-bdae-1b05518cb308",
         "ruleset": {
@@ -14,10 +14,10 @@ game_state = {
                     "shrinkEveryNTurns": 25
                 },
                 "squad": {
-                    "allowBodyCollisions": False,
-                    "sharedElimination": False,
-                    "sharedHealth": False,
-                    "sharedLength": False
+                    "allowBodyCollisions": false,
+                    "sharedElimination": false,
+                    "sharedHealth": false,
+                    "sharedLength": false
                 }
             }
         },

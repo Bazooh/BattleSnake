@@ -295,14 +295,25 @@ class CBoard(ctypes.Structure):
         board_str = ""
         for y in range(cast(int, self.height) - 1, -1, -1):
             for x in range(cast(int, self.width)):
-                if (x, y) in [(snake.contents.head.contents.x, snake.contents.head.contents.y) for snake in self.snakes[:2]]:
-                    board_str += "X "
-                elif self.apples_matrix[x][y] == 1:
-                    board_str += "O "
-                elif self.snakes_matrix[x][y] == 1:
-                    board_str += "* "
+                for snake_idx in range(cast(int, self.nb_snakes)):
+                    snake = self.snakes[snake_idx].contents
+                    if x == snake.head.contents.x and y == snake.head.contents.y:
+                        if snake.global_direction == UP:
+                            board_str += "^ "
+                        elif snake.global_direction == RIGHT:
+                            board_str += "> "
+                        elif snake.global_direction == DOWN:
+                            board_str += "v "
+                        else:
+                            board_str += "< "
+                        break
                 else:
-                    board_str += ". "
+                    if self.apples_matrix[x][y] == 1:
+                        board_str += "O "
+                    elif self.snakes_matrix[x][y] == 1:
+                        board_str += "* "
+                    else:
+                        board_str += ". "
             board_str += "\n"
         return board_str
 

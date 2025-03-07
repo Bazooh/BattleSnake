@@ -1,13 +1,11 @@
-from typing import Any
 import numpy as np
-from Constants import *
 
-DIRECTIONS = {
-    "up": np.array([0, 1]),
-    "down": np.array([0, -1]),
-    "right": np.array([1, 0]),
-    "left": np.array([-1, 0])
-}
+from typing import Any
+
+from Constants import GLOBAL_ACTIONS
+from Game.cgame import DOWN, LEFT, RIGHT, UP
+
+DIRECTIONS = {"up": np.array([0, 1]), "down": np.array([0, -1]), "right": np.array([1, 0]), "left": np.array([-1, 0])}
 DEFAULT_MOVE = "down"
 
 BLANK_CASE = 0
@@ -25,9 +23,10 @@ OTHER_PLAYER = -1
 X = 0
 Y = 1
 
+
 def get_grid(snakes: dict[str, Any], bounds: np.ndarray) -> np.ndarray:
     grid = np.zeros((bounds[X], bounds[Y]))
-    
+
     for snake in snakes.values():
         for case in snake[1:]:
             grid[case[X], case[Y]] = SNAKE_CASE
@@ -60,13 +59,17 @@ def get_global_direction_idx(snake: dict[str, Any]) -> int:
     neck = snake["body"][1]
 
     direction = (head["x"] - neck["x"], head["y"] - neck["y"])
-    
+
     match direction:
-        case (0, 1): return 0
-        case (0, -1): return 2
-        case (1, 0): return 1
-        case (-1, 0): return 3
-    
+        case (0, 1):
+            return UP
+        case (0, -1):
+            return DOWN
+        case (1, 0):
+            return RIGHT
+        case (-1, 0):
+            return LEFT
+
     assert False, f"Invalid direction {direction}"
 
 
@@ -83,7 +86,7 @@ class AverageMeter(object):
         self.count = 0
 
     def __repr__(self):
-        return f'{self.avg:.2e}'
+        return f"{self.avg:.2e}"
 
     def update(self, val, n=1):
         self.val = val

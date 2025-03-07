@@ -4,7 +4,6 @@ import typing
 
 from flask import Flask
 from flask import request
-from selenium import webdriver
 
 
 def run_server(handlers: typing.Dict, port=8000):
@@ -24,7 +23,7 @@ def run_server(handlers: typing.Dict, port=8000):
     def on_move():
         game_state = request.get_json()
         response: dict = handlers["move"](game_state)
-        
+
         # if 'score' in response:
         #     # Create a new Chrome browser instance
         #     driver = webdriver.Chrome()
@@ -45,7 +44,7 @@ def run_server(handlers: typing.Dict, port=8000):
 
         #     # Close the browser
         #     driver.quit()
-        
+
         return response
 
     @app.post("/end")

@@ -46,6 +46,6 @@ void free_snake(t_snake* snake);
 t_snake* copy_snake(t_snake* snake);
 int snake_length(t_snake* snake);
 bool compute_playable_actions(t_snake* snake, int** snakes_matrix, t_snake* *snakes, int nb_snakes, int board_width, int board_height);
-int move_snake(int global_direction, int local_direction, int board_width, int board_height, int* x, int* y);
+int move_head(int global_direction, int local_direction, int board_width, int board_height, int* x, int* y);
 
 #endif // SNAKE_H

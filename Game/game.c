@@ -137,7 +137,7 @@ float distance_to_nearest_apple(t_board* board, t_snake* snake, int max_distance
     int x = snake->head->x;
     int y = snake->head->y;
     
-    move_snake(snake->global_direction, local_direction, board->width, board->height, &x, &y);
+    move_head(snake->global_direction, local_direction, board->width, board->height, &x, &y);
 
     int min_distance = max_distance;
 

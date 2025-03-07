@@ -39,7 +39,7 @@ void suppress_tail(t_snake* snake)
 }
 
 
-int move_snake(int global_direction, int local_direction, int board_width, int board_height, int* x, int* y)
+int move_head(int global_direction, int local_direction, int board_width, int board_height, int* x, int* y)
 {
     int new_global_direction = (global_direction + local_direction - 1) & 0b11;
 
@@ -68,7 +68,7 @@ bool grow_snake(t_snake* snake, int local_direction, int board_width, int board_
     int x = snake->head->x;
     int y = snake->head->y;
 
-    snake->global_direction = move_snake(snake->global_direction, local_direction, board_width, board_height, &x, &y);
+    snake->global_direction = move_head(snake->global_direction, local_direction, board_width, board_height, &x, &y);
 
     if (x < 0 || x >= board_width || y < 0 || y >= board_height)
         return false;
@@ -158,12 +158,12 @@ bool compute_playable_actions(t_snake* snake, int** snakes_matrix, t_snake* *sna
         int x = snake->head->x;
         int y = snake->head->y;
 
-        move_snake(snake->global_direction, local_direction, board_width, board_height, &x, &y);
+        move_head(snake->global_direction, local_direction, board_width, board_height, &x, &y);
 
         snake->playable_actions[local_direction] = (x >= 0 && x < board_width && y >= 0 && y < board_height);
         
         if (snake->playable_actions[local_direction] && snakes_matrix[x][y])
-            // At this point the snake is colliding with something that is not a wall (=> a snake)
+            // At this point the snake is colliding with a snake
             // We need to check if it is colliding with a tail that will be remove in the next turn
             snake->playable_actions[local_direction] = is_colliding_with_removing_tail(snakes, nb_snakes, x, y);
         

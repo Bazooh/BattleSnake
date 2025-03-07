@@ -5,7 +5,9 @@
 # EPS_DECAY controls the rate of exponential decay of epsilon, higher means a slower decay
 # TAU is the update rate of the target network
 # LR is the learning rate of the ``AdamW`` optimizer
+
 import torch
+
 from typing import Any, Literal
 
 
@@ -41,9 +43,9 @@ TERRAIN_Y_SIZE = 11
 MAX_HEALTH = 100
 
 TERRAIN_DIMS = 4
-VIEW_SIZE = 3 # Careful this value is duplicated in Game/game.h
+VIEW_SIZE = 3  # Careful this value is duplicated in Game/game.h
 CONV_SHAPE = (N_SNAKES, 1 + 2 * VIEW_SIZE, 1 + 2 * VIEW_SIZE)
-AID_SIZE = 4 # Careful this value is duplicated in Game/game.h
+AID_SIZE = 4  # Careful this value is duplicated in Game/game.h
 """0: length | 1: left_distance_to_nearest_apple | 2: front_distance_to_nearest_apple | 3: right_distance_to_nearest_apple"""
 AID_SHAPE = (N_SNAKES, AID_SIZE)
 
@@ -61,4 +63,4 @@ NO_WINNER = 0
 NO_WINNER_PENALTY = -0.2
 """Value in [-1; 0] to give to a game where there is no winner. 0 means a draw, -1 means a loss. (Helps the snakes avoid draws)"""
 
-INF = float('inf')
+INF = float("inf")

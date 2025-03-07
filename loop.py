@@ -12,7 +12,6 @@ from Snakes.UCT.Network import Network, SnakeNet, SnakeNetwork
 from Snakes.UCT.Train import train, memory, GameMemory
 from Snakes.UCT.UCT import UCT
 
-
 MODEL_PATH = Path("Snakes/UCT/Networks/v_1_0.pt")
 
 
@@ -41,10 +40,11 @@ def run_game(model: Network, check_point: Network, spawn_probability: float = 0.
     board = init_game()
 
     uct = UCT(board, ["main", "other"], model, max_time=UCT_TIME)
-    uct_checkpoint = UCT(board, ["other", "main"], check_point, max_time=UCT_TIME)
+    uct_checkpoint = UCT(board, ["main", "other"], check_point, max_time=UCT_TIME)
     game_memory = GameMemory()
 
     fps = 0
+    check_point_fps = 0
     snake_size = 0
 
     turn = 0
@@ -59,17 +59,20 @@ def run_game(model: Network, check_point: Network, spawn_probability: float = 0.
         other_actions_value = uct.root.get_actions_value(OTHER_PLAYER)
         game_memory.save_move(board, main_actions_value, other_actions_value, turn)
 
-        fps += (uct.root.size() + uct_checkpoint.root.size()) / UCT_TIME
+        fps += (uct.root.size()) / UCT_TIME
+        check_point_fps += (uct_checkpoint.root.size()) / UCT_TIME
+
         n_snakes = int(board.nb_snakes)
         snake_size += sum(len(board.snakes[i].contents) for i in range(n_snakes)) / n_snakes
 
         new_apples = {get_random_unoccupied(uct.root.board)} if random() < spawn_probability else set()
-        
+
         main_action = GLOBAL_ACTIONS.index(main_moves["main"])
         other_action = GLOBAL_ACTIONS.index(other_moves["other"])
-        
-        uct.root = uct.root.get_next([main_action, other_action], new_apples)
-        uct_checkpoint.root = uct_checkpoint.root.get_next([other_action, main_action], new_apples)
+
+        global_actions = [main_action, other_action]
+        uct.root = uct.root.get_next(global_actions, new_apples)
+        uct_checkpoint.root = uct_checkpoint.root.get_next(global_actions, new_apples)
 
         board = uct.root.board
 
@@ -77,7 +80,7 @@ def run_game(model: Network, check_point: Network, spawn_probability: float = 0.
 
     game_memory.save_into_memory(memory, uct.root.winner, turn)
 
-    return {"turn": turn, "fps": fps / turn, "snake_size": snake_size / turn}
+    return {"turn": turn, "fps": fps / turn, "check_point_fps": check_point_fps / turn, "snake_size": snake_size / turn}
 
 
 snake_net = SnakeNet().to(DEVICE)

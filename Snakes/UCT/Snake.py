@@ -114,7 +114,7 @@ class UCTSnake(Snake):
         other_actions_value = self.uct.root.get_actions_value(OTHER_PLAYER)
 
         if not self.uct.root.board.finished:
-            self.memory.save_move(self.uct.root, main_actions_value, other_actions_value, turn)
+            self.memory.save_move(self.uct.root.board, main_actions_value, other_actions_value, turn)
 
         return moves
 
@@ -133,7 +133,7 @@ class UCTSnake(Snake):
             CBoard.from_game_state(game_state), set((apple["x"], apple["y"]) for apple in game_state["board"]["food"])
         )
         moves = self.run_uct(game_state["turn"])
-        
+
         print(self.uct.root.board)
 
         # if not self.has_shown_tree and self.uct.root.has_winner():

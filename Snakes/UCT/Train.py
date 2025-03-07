@@ -5,8 +5,8 @@ import numpy as np
 from collections import namedtuple, deque
 from typing import Generator
 
+from Game.cgame import CBoard
 from Snakes.UCT.Network import SnakeNet
-from Snakes.UCT.UCT import Root
 from Constants import DEVICE, MEMORY_SIZE, BATCH_SIZE, EPOCHS
 
 
@@ -45,14 +45,14 @@ class GameMemory(object):
 
     def save_move(
         self,
-        root: Root,
+        board: CBoard,
         main_action_values: tuple[float, float, float],
         other_action_values: tuple[float, float, float],
         turn: int,
     ):
         self.moves.append(
             (
-                *root.board.to_tensors(DEVICE),
+                *board.to_tensors(DEVICE),
                 torch.stack(
                     (
                         torch.softmax(torch.tensor(main_action_values, dtype=torch.float, device=DEVICE), dim=0),

@@ -34,18 +34,21 @@ def get_random_unoccupied(board: CBoard) -> tuple[int, int]:
         return pos
 
 
-def run_game(model: Network, spawn_probability: float = 0.15) -> dict[str, float]:
+def run_game(model: Network, check_point: Network, spawn_probability: float = 0.15) -> dict[str, float]:
     model.eval()
 
-    uct = UCT(init_game(), ["main", "other"], model, max_time=UCT_TIME)
+    board = init_game()
+
+    uct = UCT(board, ["main", "other"], model, max_time=UCT_TIME)
+    uct_checkpoint = UCT(board, ["main", "other"], check_point, max_time=UCT_TIME)
     game_memory = GameMemory()
 
     fps = 0
     snake_size = 0
 
     turn = 0
-    while not uct.root.board.finished:
-        print(uct.root.board)
+    while not board.finished:
+        print(board)
         turn += 1
 
         moves = uct.run()
@@ -54,14 +57,17 @@ def run_game(model: Network, spawn_probability: float = 0.15) -> dict[str, float
 
         main_actions_value = uct.root.get_actions_value(MAIN_PLAYER)
         other_actions_value = uct.root.get_actions_value(OTHER_PLAYER)
-        game_memory.save_move(uct.root, main_actions_value, other_actions_value, turn)
+        game_memory.save_move(board, main_actions_value, other_actions_value, turn)
 
-        fps += uct.root.size() / UCT_TIME
-        n_snakes = int(uct.root.board.nb_snakes)
-        snake_size += sum(len(uct.root.board.snakes[i].contents) for i in range(n_snakes)) / n_snakes
+        fps += (uct.root.size() + uct_checkpoint.root.size()) / UCT_TIME
+        n_snakes = int(board.nb_snakes)
+        snake_size += sum(len(board.snakes[i].contents) for i in range(n_snakes)) / n_snakes
 
         new_apples = {get_random_unoccupied(uct.root.board)} if random() < spawn_probability else set()
         uct.root = uct.root.get_next(global_actions, new_apples)
+        uct_checkpoint.root = uct_checkpoint.root.get_next(global_actions, new_apples)
+
+        board = uct.root.board
 
     assert uct.root.winner is not None
 
@@ -74,12 +80,18 @@ snake_net = SnakeNet().to(DEVICE)
 model = SnakeNetwork(snake_net).to(DEVICE)
 model.load_state_dict(torch.load(MODEL_PATH, weights_only=True))
 
+model_checkpoint = SnakeNetwork(SnakeNet().to(DEVICE)).to(DEVICE)
+model_checkpoint.load_state_dict(model.state_dict())
+
 optimizer = torch.optim.Adam(snake_net.parameters(), lr=LR)
 
 wandb.init(project="snake-game", config={"batch_size": BATCH_SIZE, "lr": LR})
 
 for i in tqdm(range(1000)):
-    infos = run_game(model)
+    if i % 10 == 0:
+        model_checkpoint.load_state_dict(model.state_dict())
+
+    infos = run_game(model, model_checkpoint)
 
     loss = 0.0
     if len(memory) >= BATCH_SIZE:

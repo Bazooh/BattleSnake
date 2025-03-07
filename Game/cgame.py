@@ -26,7 +26,7 @@ LP_c_float = ctypes.POINTER(ctypes.c_float)
 LP_LP_c_float = ctypes.POINTER(LP_c_float)
 LP_LP_LP_c_float = ctypes.POINTER(LP_LP_c_float)
 
-my_library = ctypes.CDLL("/Users/aymeric/Desktop/Programming/AI/BattleSnake/Game/game.so")
+my_library = ctypes.CDLL("Game/game.so")
 
 
 T = TypeVar("T", bound=ctypes.c_int | ctypes.c_float)

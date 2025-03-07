@@ -1,3 +1,4 @@
+from pathlib import Path
 import torch
 import wandb
 
@@ -12,7 +13,7 @@ from Snakes.UCT.Train import train, memory, GameMemory
 from Snakes.UCT.UCT import UCT
 
 
-MODEL_PATH = "Snakes/UCT/Networks/v_1_0.pt"
+MODEL_PATH = Path("Snakes/UCT/Networks/v_1_0.pt")
 
 
 def init_game(width: int = 11, height: int = 11, initial_snake_size: int = 3) -> CBoard:
@@ -40,7 +41,7 @@ def run_game(model: Network, check_point: Network, spawn_probability: float = 0.
     board = init_game()
 
     uct = UCT(board, ["main", "other"], model, max_time=UCT_TIME)
-    uct_checkpoint = UCT(board, ["main", "other"], check_point, max_time=UCT_TIME)
+    uct_checkpoint = UCT(board, ["other", "main"], check_point, max_time=UCT_TIME)
     game_memory = GameMemory()
 
     fps = 0
@@ -51,9 +52,8 @@ def run_game(model: Network, check_point: Network, spawn_probability: float = 0.
         print(board)
         turn += 1
 
-        moves = uct.run()
-
-        global_actions = [GLOBAL_ACTIONS.index(moves["main"]), GLOBAL_ACTIONS.index(moves["other"])]
+        main_moves = uct.run()
+        other_moves = uct_checkpoint.run()
 
         main_actions_value = uct.root.get_actions_value(MAIN_PLAYER)
         other_actions_value = uct.root.get_actions_value(OTHER_PLAYER)
@@ -64,8 +64,12 @@ def run_game(model: Network, check_point: Network, spawn_probability: float = 0.
         snake_size += sum(len(board.snakes[i].contents) for i in range(n_snakes)) / n_snakes
 
         new_apples = {get_random_unoccupied(uct.root.board)} if random() < spawn_probability else set()
-        uct.root = uct.root.get_next(global_actions, new_apples)
-        uct_checkpoint.root = uct_checkpoint.root.get_next(global_actions, new_apples)
+        
+        main_action = GLOBAL_ACTIONS.index(main_moves["main"])
+        other_action = GLOBAL_ACTIONS.index(other_moves["other"])
+        
+        uct.root = uct.root.get_next([main_action, other_action], new_apples)
+        uct_checkpoint.root = uct_checkpoint.root.get_next([other_action, main_action], new_apples)
 
         board = uct.root.board
 
@@ -78,7 +82,8 @@ def run_game(model: Network, check_point: Network, spawn_probability: float = 0.
 
 snake_net = SnakeNet().to(DEVICE)
 model = SnakeNetwork(snake_net).to(DEVICE)
-model.load_state_dict(torch.load(MODEL_PATH, weights_only=True))
+if MODEL_PATH.exists():
+    model.load_state_dict(torch.load(MODEL_PATH, weights_only=True))
 
 model_checkpoint = SnakeNetwork(SnakeNet().to(DEVICE)).to(DEVICE)
 model_checkpoint.load_state_dict(model.state_dict())

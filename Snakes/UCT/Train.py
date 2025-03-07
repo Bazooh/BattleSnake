@@ -99,8 +99,8 @@ def train(model: SnakeNet, memory: ReplayMemory, optimizer) -> float:
         batch_aids = torch.stack(batch.aids)
         batch_possible_actions = torch.stack(batch.possible_actions)
         batch_policies = torch.stack(batch.policies)
-        batch_winner = torch.tensor(batch.winner)
-        batch_loss_factor = torch.tensor(batch.loss_factor)
+        batch_winner = torch.tensor(batch.winner, device=DEVICE)
+        batch_loss_factor = torch.tensor(batch.loss_factor, device=DEVICE)
 
         optimizer.zero_grad()
         pred_winner, pred_policies = model(batch_convs, batch_aids, batch_possible_actions)
